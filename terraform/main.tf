@@ -254,15 +254,15 @@ resource "aws_iam_role_policy" "ecs_task" {
 }
 
 # Use existing ECS Task Definition
-data "aws_ecs_task_definition" "app" {
-  task_definition = "aws-monitor:12"
+locals {
+  task_definition_arn = "arn:aws:ecs:us-east-1:156041437006:task-definition/aws-monitor:12"
 }
 
 # ECS Service
 resource "aws_ecs_service" "app" {
   name                = "aws-monitor"
   cluster             = aws_ecs_cluster.main.id
-  task_definition     = data.aws_ecs_task_definition.app.arn
+  task_definition     = local.task_definition_arn
   desired_count       = 1
   launch_type         = "FARGATE"
   platform_version    = "LATEST"

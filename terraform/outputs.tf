@@ -11,7 +11,7 @@ output "ecs_service_name" {
 }
 
 output "task_definition_family" {
-  value = data.aws_ecs_task_definition.app.family
+  value = split("/", local.task_definition_arn)[1]
 }
 
 output "load_balancer_url" {
