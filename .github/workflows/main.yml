@@ -75,13 +75,12 @@ jobs:
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       run: terraform init
 
-    - name: Setup Terraform state
+    - name: Get existing state resources
       id: state-setup
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       run: |
-        terraform apply -auto-approve -target=aws_s3_bucket.terraform_state -target=aws_s3_bucket_versioning.terraform_state -target=aws_s3_bucket_server_side_encryption_configuration.terraform_state -target=aws_dynamodb_table.terraform_state_lock
-        echo "state_bucket=$(terraform output -raw state_bucket)" >> $GITHUB_OUTPUT
-        echo "state_lock_table=$(terraform output -raw state_lock_table)" >> $GITHUB_OUTPUT
+        echo "state_bucket=aws-monitor-tf-state-156041437006" >> $GITHUB_OUTPUT
+        echo "state_lock_table=aws-monitor-tf-lock-156041437006" >> $GITHUB_OUTPUT
 
   deploy-infrastructure:
     needs: setup-terraform-state
