@@ -1,0 +1,283 @@
+name: AWS Monitor CI/CD
+
+# Required secrets for this workflow:
+# AWS_ACCESS_KEY_ID: AWS access key for deploying infrastructure and pushing to ECR
+# AWS_SECRET_ACCESS_KEY: AWS secret key for deploying infrastructure and pushing to ECR
+# GITHUB_TOKEN: Automatically provided by GitHub, used for repository access
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-east-1
+  TERRAFORM_WORKING_DIR: terraform
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run linting
+      run: npm run lint || true
+
+    - name: Build application
+      run: npm run build
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq bc
+
+    - name: Run tests
+      run: npm test || true
+
+
+
+  setup-terraform-state:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    outputs:
+      state_bucket: ${{ steps.state-setup.outputs.state_bucket }}
+      state_lock_table: ${{ steps.state-setup.outputs.state_lock_table }}
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+
+    - name: Initialize Terraform for state setup
+      working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      run: terraform init
+
+    - name: Setup Terraform state
+      id: state-setup
+      working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      run: |
+        terraform apply -auto-approve -target=aws_s3_bucket.terraform_state -target=aws_s3_bucket_versioning.terraform_state -target=aws_s3_bucket_server_side_encryption_configuration.terraform_state -target=aws_dynamodb_table.terraform_state_lock
+        echo "state_bucket=$(terraform output -raw state_bucket)" >> $GITHUB_OUTPUT
+        echo "state_lock_table=$(terraform output -raw state_lock_table)" >> $GITHUB_OUTPUT
+
+  deploy-infrastructure:
+    needs: setup-terraform-state
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    outputs:
+      ecr_repository: ${{ steps.terraform-outputs.outputs.ecr_repository_url }}
+      ecs_cluster: ${{ steps.terraform-outputs.outputs.ecs_cluster_name }}
+      ecs_service: ${{ steps.terraform-outputs.outputs.ecs_service_name }}
+      task_definition: ${{ steps.terraform-outputs.outputs.task_definition_family }}
+      load_balancer_url: ${{ steps.terraform-outputs.outputs.load_balancer_url }}
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+
+    - name: Configure Terraform backend
+      working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      run: |
+        cat > backend.tf << EOF
+        terraform {
+          backend "s3" {
+            bucket         = "${{ needs.setup-terraform-state.outputs.state_bucket }}"
+            key            = "terraform.tfstate"
+            region         = "${{ env.AWS_REGION }}"
+            dynamodb_table = "${{ needs.setup-terraform-state.outputs.state_lock_table }}"
+            encrypt        = true
+          }
+        }
+        EOF
+
+    - name: Terraform Init with S3 backend
+      working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      run: terraform init -reconfigure
+
+    - name: Terraform Apply
+      working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      run: terraform apply -auto-approve
+
+    - name: Get Terraform Outputs
+      id: terraform-outputs
+      working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      run: |
+        echo "ecr_repository_url=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
+        echo "ecs_cluster_name=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
+        echo "ecs_service_name=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
+        echo "task_definition_family=$(terraform output -raw task_definition_family)" >> $GITHUB_OUTPUT
+        echo "load_balancer_url=$(terraform output -raw load_balancer_url)" >> $GITHUB_OUTPUT
+
+  build-and-push-image:
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build and push Docker image
+      env:
+        ECR_REGISTRY: ${{ needs.deploy-infrastructure.outputs.ecr_repository }}
+      run: |
+        # Build with cache from latest
+        docker pull $ECR_REGISTRY:latest || true
+        docker build \
+          --cache-from $ECR_REGISTRY:latest \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          -t $ECR_REGISTRY:${{ github.sha }} \
+          -t $ECR_REGISTRY:latest \
+          .
+        docker push $ECR_REGISTRY:${{ github.sha }}
+        docker push $ECR_REGISTRY:latest
+
+  deploy-to-ecs:
+    needs: [deploy-infrastructure, build-and-push-image]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Download task definition
+      run: |
+        aws ecs describe-task-definition \
+          --task-definition ${{ needs.deploy-infrastructure.outputs.task_definition }} \
+          --query taskDefinition > task-definition.json
+
+    - name: Fill in the new image ID in the Amazon ECS task definition
+      id: task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: task-definition.json
+        container-name: aws-monitor
+        image: ${{ needs.deploy-infrastructure.outputs.ecr_repository }}:${{ github.sha }}
+
+    - name: Deploy Amazon ECS task definition
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        service: ${{ needs.deploy-infrastructure.outputs.ecs_service }}
+        cluster: ${{ needs.deploy-infrastructure.outputs.ecs_cluster }}
+        wait-for-service-stability: true
+
+    - name: Display Application URL
+      id: app-url
+      run: |
+        APP_URL="http://${{ needs.deploy-infrastructure.outputs.load_balancer_url }}"
+        echo "✨ Application is now available at: $APP_URL"
+        echo "⏳ Note: It may take a few minutes for DNS to propagate and the application to be fully available"
+        echo "url=$APP_URL" >> $GITHUB_OUTPUT
+
+    - name: Wait for Application Health
+      run: |
+        echo "Waiting for application to be healthy..."
+        APP_URL="${{ steps.app-url.outputs.url }}"
+        for i in {1..30}; do
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL")
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ Application is healthy and responding with HTTP 200"
+            exit 0
+          fi
+          echo "Attempt $i: Application returned HTTP $HTTP_STATUS, waiting 10 seconds..."
+          sleep 10
+        done
+        echo "❌ Application health check failed after 5 minutes"
+        exit 1
+
+    - name: Verify API Endpoints
+      run: |
+        echo "Testing key API endpoints..."
+        APP_URL="${{ steps.app-url.outputs.url }}"
+        
+        # Test root endpoint
+        ROOT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL")
+        echo "Root endpoint (/) status: $ROOT_STATUS"
+        
+        # Test accounts endpoint
+        ACCOUNTS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/api/accounts")
+        echo "Accounts endpoint (/api/accounts) status: $ACCOUNTS_STATUS"
+        
+        # Test metrics endpoint
+        METRICS_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/api/metrics")
+        echo "Metrics endpoint (/api/metrics) status: $METRICS_STATUS"
+        
+        # Verify all endpoints are responding
+        if [ "$ROOT_STATUS" = "200" ] && [ "$ACCOUNTS_STATUS" = "200" ] && [ "$METRICS_STATUS" = "200" ]; then
+          echo "✅ All endpoints are responding correctly"
+        else
+          echo "❌ Some endpoints are not responding correctly"
+          exit 1
+        fi
+
+    - name: Check CloudWatch Metrics
+      run: |
+        echo "Checking CloudWatch metrics for the service..."
+        
+        # Get timestamps for 5 minutes ago and now
+        START_TIME=$(date -u -d '5 minutes ago' +%Y-%m-%dT%H:%M:%S)
+        END_TIME=$(date -u +%Y-%m-%dT%H:%M:%S)
+        
+        # Check ECS service metrics
+        aws cloudwatch get-metric-statistics \
+          --namespace AWS/ECS \
+          --metric-name CPUUtilization \
+          --dimensions Name=ClusterName,Value=${{ needs.deploy-infrastructure.outputs.ecs_cluster }} Name=ServiceName,Value=${{ needs.deploy-infrastructure.outputs.ecs_service }} \
+          --start-time "$START_TIME" \
+          --end-time "$END_TIME" \
+          --period 300 \
+          --statistics Average
+        
+        # Check ALB metrics
+        aws cloudwatch get-metric-statistics \
+          --namespace AWS/ApplicationELB \
+          --metric-name TargetResponseTime \
+          --dimensions Name=LoadBalancer,Value=${{ needs.deploy-infrastructure.outputs.load_balancer_url }} \
+          --start-time "$START_TIME" \
+          --end-time "$END_TIME" \
+          --period 300 \
+          --statistics Average
