@@ -19,7 +19,10 @@ A web application for monitoring multiple AWS accounts' resources and costs. The
 ## Prerequisites
 
 - Node.js 18 or higher
-- AWS Account with appropriate permissions
+- AWS Account with appropriate permissions for:
+  - S3 bucket management (for Terraform state)
+  - DynamoDB table creation (for state locking)
+  - Infrastructure deployment
 - Docker (for containerized deployment)
 - Terraform (for infrastructure deployment)
 
