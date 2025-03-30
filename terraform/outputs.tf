@@ -15,7 +15,7 @@ output "task_definition_family" {
 }
 
 output "load_balancer_url" {
-  value = aws_lb.app.dns_name
+  value = aws_lb.main.dns_name
   description = "The DNS name of the load balancer"
 }
 
@@ -23,10 +23,17 @@ output "vpc_id" {
   value = aws_vpc.main.id
 }
 
-output "subnet_id" {
-  value = aws_subnet.main.id
+output "public_subnet_ids" {
+  value = aws_subnet.public[*].id
+  description = "The IDs of the public subnets"
 }
 
-output "security_group_id" {
-  value = aws_security_group.app.id
+output "alb_security_group_id" {
+  value = aws_security_group.alb.id
+  description = "The ID of the ALB security group"
+}
+
+output "ecs_security_group_id" {
+  value = aws_security_group.ecs.id
+  description = "The ID of the ECS security group"
 }
