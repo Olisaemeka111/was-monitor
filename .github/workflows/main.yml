@@ -129,11 +129,11 @@ jobs:
       id-token: write
       contents: read
     outputs:
-      ecr_repository: ${{ steps.tf-outputs.outputs.ecr_url }}
-      ecs_cluster: ${{ steps.tf-outputs.outputs.cluster_name }}
-      ecs_service: ${{ steps.tf-outputs.outputs.service_name }}
-      task_definition: ${{ steps.tf-outputs.outputs.task_family }}
-      load_balancer_url: ${{ steps.tf-outputs.outputs.lb_url }}
+      ecr_repository: "156041437006.dkr.ecr.us-east-1.amazonaws.com/aws-monitor"
+      ecs_cluster: "aws-monitor"
+      ecs_service: "aws-monitor"
+      task_definition: "aws-monitor"
+      load_balancer_url: "aws-monitor-lb"
     
     steps:
     - uses: actions/checkout@v3
@@ -172,19 +172,7 @@ jobs:
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       run: terraform apply -auto-approve
 
-    - name: Get Terraform outputs
-      id: tf-outputs
-      working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
-      run: |
-        # First run plan to ensure state is up to date
-        terraform refresh
-        
-        # Get outputs directly
-        echo "ecr_url=$(terraform output -raw ecr_repository_url || echo '')" >> $GITHUB_OUTPUT
-        echo "cluster_name=$(terraform output -raw ecs_cluster_name || echo '')" >> $GITHUB_OUTPUT
-        echo "service_name=$(terraform output -raw ecs_service_name || echo '')" >> $GITHUB_OUTPUT
-        echo "task_family=$(terraform output -raw task_definition_family || echo '')" >> $GITHUB_OUTPUT
-        echo "lb_url=$(terraform output -raw load_balancer_url || echo '')" >> $GITHUB_OUTPUT
+
 
 
 
