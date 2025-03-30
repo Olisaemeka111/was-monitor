@@ -255,16 +255,6 @@ resource "aws_iam_role_policy" "ecs_task" {
 
 # ECS Task Definition
 resource "aws_ecs_task_definition" "app" {
-  depends_on = [
-    aws_iam_role.ecs_execution,
-    aws_iam_role.ecs_task,
-    aws_cloudwatch_log_group.app
-  ]
-
-  lifecycle {
-    create_before_destroy = true
-  }
-
   family                   = "aws-monitor"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
@@ -272,13 +262,16 @@ resource "aws_ecs_task_definition" "app" {
   memory                  = 512
   execution_role_arn      = aws_iam_role.ecs_execution.arn
   task_role_arn           = aws_iam_role.ecs_task.arn
-
-  container_definitions = jsonencode([
+  skip_destroy            = false
+  container_definitions   = jsonencode([
     {
-      name         = "aws-monitor"
-      image        = "${aws_ecr_repository.app.repository_url}:latest"
-      essential    = true
-      portMappings = [
+      name              = "aws-monitor"
+      image             = "${aws_ecr_repository.app.repository_url}:latest"
+      essential         = true
+      cpu               = 256
+      memory           = 512
+      memoryReservation = 256
+      portMappings     = [
         {
           containerPort = 4000
           hostPort      = 4000
@@ -294,12 +287,13 @@ resource "aws_ecs_task_definition" "app" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group"         = "/ecs/aws-monitor"
+          "awslogs-group"         = aws_cloudwatch_log_group.app.name
           "awslogs-region"        = "us-east-1"
           "awslogs-stream-prefix" = "ecs"
-          "awslogs-create-group"  = "true"
         }
       }
+      mountPoints = []
+      volumesFrom = []
     }
   ])
 
@@ -310,18 +304,13 @@ resource "aws_ecs_task_definition" "app" {
 
 # ECS Service
 resource "aws_ecs_service" "app" {
-  depends_on = [
-    aws_ecs_task_definition.app,
-    aws_lb_target_group.app,
-    aws_iam_role_policy.ecs_task
-  ]
-
   name                = "aws-monitor"
   cluster             = aws_ecs_cluster.main.id
   task_definition     = aws_ecs_task_definition.app.arn
   desired_count       = 1
   launch_type         = "FARGATE"
-  force_new_deployment = true
+  platform_version    = "LATEST"
+  scheduling_strategy = "REPLICA"
   
   lifecycle {
     ignore_changes = [
