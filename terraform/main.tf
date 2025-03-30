@@ -253,12 +253,17 @@ resource "aws_ecs_task_definition" "app" {
   }
 }
 
+# Get latest task definition
+data "aws_ecs_task_definition" "app" {
+  task_definition = aws_ecs_task_definition.app.family
+  depends_on      = [aws_ecs_task_definition.app]
+}
+
 # ECS Service
 resource "aws_ecs_service" "app" {
-  depends_on = [aws_ecs_task_definition.app]
   name            = "aws-monitor"
   cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.app.arn
+  task_definition = data.aws_ecs_task_definition.app.id
   desired_count   = 1
   launch_type     = "FARGATE"
 
