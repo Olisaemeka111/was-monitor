@@ -1,3 +1,4 @@
+# Configure S3 backend with DynamoDB state locking
 terraform {
   backend "s3" {
     bucket         = "aws-monitor-tf-state-156041437006"
