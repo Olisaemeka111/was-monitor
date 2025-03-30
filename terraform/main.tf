@@ -262,16 +262,12 @@ resource "aws_ecs_task_definition" "app" {
   memory                  = 512
   execution_role_arn      = aws_iam_role.ecs_execution.arn
   task_role_arn           = aws_iam_role.ecs_task.arn
-  skip_destroy            = false
   container_definitions   = jsonencode([
     {
-      name              = "aws-monitor"
-      image             = "${aws_ecr_repository.app.repository_url}:latest"
-      essential         = true
-      cpu               = 256
-      memory           = 512
-      memoryReservation = 256
-      portMappings     = [
+      name      = "aws-monitor"
+      image     = "${aws_ecr_repository.app.repository_url}:latest"
+      essential = true
+      portMappings = [
         {
           containerPort = 4000
           hostPort      = 4000
@@ -292,10 +288,13 @@ resource "aws_ecs_task_definition" "app" {
           "awslogs-stream-prefix" = "ecs"
         }
       }
-      mountPoints = []
-      volumesFrom = []
     }
   ])
+
+  runtime_platform {
+    operating_system_family = "LINUX"
+    cpu_architecture       = "X86_64"
+  }
 
   tags = {
     Name = "aws-monitor"
