@@ -210,6 +210,9 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
 # ECS Task Definition
 # Note: Requires permissions for both registering and reading task definitions
 resource "aws_ecs_task_definition" "app" {
+  lifecycle {
+    create_before_destroy = true
+  }
   family                   = "aws-monitor"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
@@ -252,6 +255,7 @@ resource "aws_ecs_task_definition" "app" {
 
 # ECS Service
 resource "aws_ecs_service" "app" {
+  depends_on = [aws_ecs_task_definition.app]
   name            = "aws-monitor"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
