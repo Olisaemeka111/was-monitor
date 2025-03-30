@@ -222,8 +222,11 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([
     {
-      name  = "aws-monitor"
-      image = "${aws_ecr_repository.app.repository_url}:latest"
+      name         = "aws-monitor"
+      image        = "${aws_ecr_repository.app.repository_url}:latest"
+      essential    = true
+      cpu          = 256
+      memory       = 512
       portMappings = [
         {
           containerPort = 4000
@@ -245,6 +248,8 @@ resource "aws_ecs_task_definition" "app" {
           "awslogs-stream-prefix" = "ecs"
         }
       }
+      mountPoints  = []
+      volumesFrom  = []
     }
   ])
 
@@ -259,11 +264,16 @@ data "aws_ecs_task_definition" "app" {
   depends_on      = [aws_ecs_task_definition.app]
 }
 
+data "aws_ecs_task_definition" "app_active" {
+  task_definition = aws_ecs_task_definition.app.family
+  depends_on      = [aws_ecs_task_definition.app]
+}
+
 # ECS Service
 resource "aws_ecs_service" "app" {
   name            = "aws-monitor"
   cluster         = aws_ecs_cluster.main.id
-  task_definition = data.aws_ecs_task_definition.app.id
+  task_definition = aws_ecs_task_definition.app.arn
   desired_count   = 1
   launch_type     = "FARGATE"
 
