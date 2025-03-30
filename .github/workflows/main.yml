@@ -48,6 +48,9 @@ jobs:
   setup-terraform-state:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       state_bucket: ${{ steps.state-setup.outputs.state_bucket }}
       state_lock_table: ${{ steps.state-setup.outputs.state_lock_table }}
@@ -61,6 +64,7 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
+        mask-aws-account-id: true
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
@@ -81,6 +85,9 @@ jobs:
     needs: setup-terraform-state
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       ecr_repository: ${{ steps.terraform-outputs.outputs.ecr_repository_url }}
       ecs_cluster: ${{ steps.terraform-outputs.outputs.ecs_cluster_name }}
@@ -97,6 +104,7 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
+        mask-aws-account-id: true
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
@@ -138,6 +146,9 @@ jobs:
     needs: deploy-infrastructure
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
     - uses: actions/checkout@v3
@@ -148,6 +159,7 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
+        mask-aws-account-id: true
 
     - name: Login to Amazon ECR
       id: login-ecr
@@ -172,6 +184,9 @@ jobs:
     needs: [deploy-infrastructure, build-and-push-image]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
     - uses: actions/checkout@v3
@@ -182,6 +197,7 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
+        mask-aws-account-id: true
 
     - name: Download task definition
       run: |
