@@ -172,43 +172,23 @@ jobs:
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       run: terraform apply -auto-approve
 
-    - name: Save Terraform outputs to file
-      working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
-      run: |
-        terraform output -json > tf-outputs.json
-
-    - name: Parse Terraform outputs
+    - name: Get Terraform outputs
       id: tf-outputs
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       run: |
-        # Read values from JSON and store in variables
-        ECR_URL=$(jq -r '.ecr_repository_url.value' tf-outputs.json)
-        ECS_CLUSTER=$(jq -r '.ecs_cluster_name.value' tf-outputs.json)
-        ECS_SERVICE=$(jq -r '.ecs_service_name.value' tf-outputs.json)
-        TASK_FAMILY=$(jq -r '.task_definition_family.value' tf-outputs.json)
-        LB_URL=$(jq -r '.load_balancer_url.value' tf-outputs.json)
+        # Write each output to a separate file
+        terraform output -raw ecr_repository_url > ecr_url.txt
+        terraform output -raw ecs_cluster_name > ecs_cluster.txt
+        terraform output -raw ecs_service_name > ecs_service.txt
+        terraform output -raw task_definition_family > task_family.txt
+        terraform output -raw load_balancer_url > lb_url.txt
 
-        # Write to GITHUB_OUTPUT using delimiter syntax
-        delimiter=$(openssl rand -hex 8)
-        echo "ecr_repository_url<<$delimiter" >> $GITHUB_OUTPUT
-        echo "$ECR_URL" >> $GITHUB_OUTPUT
-        echo "$delimiter" >> $GITHUB_OUTPUT
-
-        echo "ecs_cluster_name<<$delimiter" >> $GITHUB_OUTPUT
-        echo "$ECS_CLUSTER" >> $GITHUB_OUTPUT
-        echo "$delimiter" >> $GITHUB_OUTPUT
-
-        echo "ecs_service_name<<$delimiter" >> $GITHUB_OUTPUT
-        echo "$ECS_SERVICE" >> $GITHUB_OUTPUT
-        echo "$delimiter" >> $GITHUB_OUTPUT
-
-        echo "task_definition_family<<$delimiter" >> $GITHUB_OUTPUT
-        echo "$TASK_FAMILY" >> $GITHUB_OUTPUT
-        echo "$delimiter" >> $GITHUB_OUTPUT
-
-        echo "load_balancer_url<<$delimiter" >> $GITHUB_OUTPUT
-        echo "$LB_URL" >> $GITHUB_OUTPUT
-        echo "$delimiter" >> $GITHUB_OUTPUT
+        # Read from files and set outputs
+        echo "ecr_repository_url=$(cat ecr_url.txt)" >> $GITHUB_OUTPUT
+        echo "ecs_cluster_name=$(cat ecs_cluster.txt)" >> $GITHUB_OUTPUT
+        echo "ecs_service_name=$(cat ecs_service.txt)" >> $GITHUB_OUTPUT
+        echo "task_definition_family=$(cat task_family.txt)" >> $GITHUB_OUTPUT
+        echo "load_balancer_url=$(cat lb_url.txt)" >> $GITHUB_OUTPUT
 
 
 
