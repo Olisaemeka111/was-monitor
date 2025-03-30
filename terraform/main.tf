@@ -208,6 +208,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
 }
 
 # ECS Task Definition
+# Note: Requires permissions for both registering and reading task definitions
 resource "aws_ecs_task_definition" "app" {
   family                   = "aws-monitor"
   network_mode             = "awsvpc"

@@ -34,11 +34,14 @@
                 "iam:DeleteRolePolicy",
                 "iam:AttachRolePolicy",
                 "iam:DetachRolePolicy",
-                "iam:PassRole"
+                "iam:PassRole",
+                "ecs:DescribeTaskDefinitionStatus",
+                "ecs:GetTaskDefinition"
             ],
             "Resource": [
                 "arn:aws:dynamodb:us-east-1:156041437006:table/aws-monitor-accounts",
                 "arn:aws:ecs:us-east-1:156041437006:cluster/aws-monitor",
+                "arn:aws:ecs:us-east-1:156041437006:task-definition/aws-monitor",
                 "arn:aws:ecs:us-east-1:156041437006:task-definition/aws-monitor:*",
                 "arn:aws:ecs:us-east-1:156041437006:service/aws-monitor/aws-monitor",
                 "arn:aws:iam::156041437006:role/aws-monitor-ecs-execution"
