@@ -179,7 +179,8 @@ resource "aws_ecs_cluster" "main" {
   }
 }
 
-# ECS Execution Role
+# ECS Execution Role for task logging
+# This requires IAM permissions to create and manage roles
 resource "aws_iam_role" "ecs_execution" {
   name = "aws-monitor-ecs-execution"
 

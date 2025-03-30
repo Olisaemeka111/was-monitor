@@ -27,6 +27,13 @@
                 "ecs:UpdateService",
                 "ecs:TagResource",
                 "ecs:ListTagsForResource",
+                "iam:CreateRole",
+                "iam:DeleteRole",
+                "iam:GetRole",
+                "iam:PutRolePolicy",
+                "iam:DeleteRolePolicy",
+                "iam:AttachRolePolicy",
+                "iam:DetachRolePolicy",
                 "iam:PassRole"
             ],
             "Resource": [
@@ -34,7 +41,7 @@
                 "arn:aws:ecs:us-east-1:156041437006:cluster/aws-monitor",
                 "arn:aws:ecs:us-east-1:156041437006:task-definition/aws-monitor:*",
                 "arn:aws:ecs:us-east-1:156041437006:service/aws-monitor/aws-monitor",
-                "arn:aws:iam::156041437006:role/*"
+                "arn:aws:iam::156041437006:role/aws-monitor-ecs-execution"
             ]
         }
     ]
