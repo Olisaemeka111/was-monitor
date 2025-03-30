@@ -176,11 +176,19 @@ jobs:
       id: terraform-outputs
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       run: |
-        echo "ecr_repository_url=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
-        echo "ecs_cluster_name=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
-        echo "ecs_service_name=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
-        echo "task_definition_family=$(terraform output -raw task_definition_family)" >> $GITHUB_OUTPUT
-        echo "load_balancer_url=$(terraform output -raw load_balancer_url)" >> $GITHUB_OUTPUT
+        # Store outputs in variables first
+        ECR_URL=$(terraform output -raw ecr_repository_url)
+        ECS_CLUSTER=$(terraform output -raw ecs_cluster_name)
+        ECS_SERVICE=$(terraform output -raw ecs_service_name)
+        TASK_FAMILY=$(terraform output -raw task_definition_family)
+        LB_URL=$(terraform output -raw load_balancer_url)
+        
+        # Then write to GITHUB_OUTPUT with proper escaping
+        echo "ecr_repository_url=${ECR_URL}" >> $GITHUB_OUTPUT
+        echo "ecs_cluster_name=${ECS_CLUSTER}" >> $GITHUB_OUTPUT
+        echo "ecs_service_name=${ECS_SERVICE}" >> $GITHUB_OUTPUT
+        echo "task_definition_family=${TASK_FAMILY}" >> $GITHUB_OUTPUT
+        echo "load_balancer_url=${LB_URL}" >> $GITHUB_OUTPUT
 
 
 
