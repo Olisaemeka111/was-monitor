@@ -129,11 +129,11 @@ jobs:
       id-token: write
       contents: read
     outputs:
-      ecr_repository: ${{ env.ecr_repository_url }}
-      ecs_cluster: ${{ env.ecs_cluster_name }}
-      ecs_service: ${{ env.ecs_service_name }}
-      task_definition: ${{ env.task_definition_family }}
-      load_balancer_url: ${{ env.load_balancer_url }}
+      ecr_repository: ${{ steps.ecr.outputs.url }}
+      ecs_cluster: ${{ steps.cluster.outputs.name }}
+      ecs_service: ${{ steps.service.outputs.name }}
+      task_definition: ${{ steps.task.outputs.family }}
+      load_balancer_url: ${{ steps.lb.outputs.url }}
     
     steps:
     - uses: actions/checkout@v3
@@ -172,30 +172,30 @@ jobs:
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       run: terraform apply -auto-approve
 
-    - name: Get Terraform outputs
-      id: tf-outputs
+    - name: Get ECR URL
+      id: ecr
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
-      run: |
-        # Get outputs one by one
-        ECR_URL=$(terraform output -raw ecr_repository_url)
-        ECS_CLUSTER=$(terraform output -raw ecs_cluster_name)
-        ECS_SERVICE=$(terraform output -raw ecs_service_name)
-        TASK_FAMILY=$(terraform output -raw task_definition_family)
-        LB_URL=$(terraform output -raw load_balancer_url)
+      run: echo "url=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
 
-        # Set environment variables
-        echo "ecr_repository_url=$ECR_URL" >> $GITHUB_ENV
-        echo "ecs_cluster_name=$ECS_CLUSTER" >> $GITHUB_ENV
-        echo "ecs_service_name=$ECS_SERVICE" >> $GITHUB_ENV
-        echo "task_definition_family=$TASK_FAMILY" >> $GITHUB_ENV
-        echo "load_balancer_url=$LB_URL" >> $GITHUB_ENV
+    - name: Get ECS Cluster
+      id: cluster
+      working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      run: echo "name=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
 
-        # Set outputs
-        echo "ecr_repository_url=$ECR_URL" >> $GITHUB_OUTPUT
-        echo "ecs_cluster_name=$ECS_CLUSTER" >> $GITHUB_OUTPUT
-        echo "ecs_service_name=$ECS_SERVICE" >> $GITHUB_OUTPUT
-        echo "task_definition_family=$TASK_FAMILY" >> $GITHUB_OUTPUT
-        echo "load_balancer_url=$LB_URL" >> $GITHUB_OUTPUT
+    - name: Get ECS Service
+      id: service
+      working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      run: echo "name=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
+
+    - name: Get Task Family
+      id: task
+      working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      run: echo "family=$(terraform output -raw task_definition_family)" >> $GITHUB_OUTPUT
+
+    - name: Get Load Balancer
+      id: lb
+      working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      run: echo "url=$(terraform output -raw load_balancer_url)" >> $GITHUB_OUTPUT
 
 
 
