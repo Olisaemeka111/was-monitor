@@ -253,59 +253,16 @@ resource "aws_iam_role_policy" "ecs_task" {
   })
 }
 
-# ECS Task Definition
-resource "aws_ecs_task_definition" "app" {
-  family                   = "aws-monitor"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                     = 256
-  memory                  = 512
-  execution_role_arn      = aws_iam_role.ecs_execution.arn
-  task_role_arn           = aws_iam_role.ecs_task.arn
-  container_definitions   = jsonencode([
-    {
-      name      = "aws-monitor"
-      image     = "${aws_ecr_repository.app.repository_url}:latest"
-      essential = true
-      portMappings = [
-        {
-          containerPort = 4000
-          hostPort      = 4000
-          protocol      = "tcp"
-        }
-      ]
-      environment = [
-        {
-          name  = "NODE_ENV"
-          value = "production"
-        }
-      ]
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.app.name
-          "awslogs-region"        = "us-east-1"
-          "awslogs-stream-prefix" = "ecs"
-        }
-      }
-    }
-  ])
-
-  runtime_platform {
-    operating_system_family = "LINUX"
-    cpu_architecture       = "X86_64"
-  }
-
-  tags = {
-    Name = "aws-monitor"
-  }
+# Use existing ECS Task Definition
+data "aws_ecs_task_definition" "app" {
+  task_definition = "aws-monitor:12"
 }
 
 # ECS Service
 resource "aws_ecs_service" "app" {
   name                = "aws-monitor"
   cluster             = aws_ecs_cluster.main.id
-  task_definition     = aws_ecs_task_definition.app.arn
+  task_definition     = data.aws_ecs_task_definition.app.arn
   desired_count       = 1
   launch_type         = "FARGATE"
   platform_version    = "LATEST"

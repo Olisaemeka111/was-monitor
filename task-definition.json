@@ -1,0 +1,41 @@
+{
+  "family": "aws-monitor",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::156041437006:role/aws-monitor-ecs-execution",
+  "taskRoleArn": "arn:aws:iam::156041437006:role/aws-monitor-ecs-task",
+  "containerDefinitions": [
+    {
+      "name": "aws-monitor",
+      "image": "156041437006.dkr.ecr.us-east-1.amazonaws.com/aws-monitor:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 4000,
+          "hostPort": 4000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/aws-monitor",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ],
+  "runtimePlatform": {
+    "operatingSystemFamily": "LINUX",
+    "cpuArchitecture": "X86_64"
+  }
+}
