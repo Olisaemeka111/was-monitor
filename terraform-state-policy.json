@@ -1,0 +1,22 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:*",
+                "dynamodb:CreateTable",
+                "dynamodb:DeleteTable",
+                "dynamodb:DescribeTable",
+                "dynamodb:TagResource",
+                "dynamodb:GetItem",
+                "dynamodb:PutItem",
+                "dynamodb:DeleteItem"
+            ],
+            "Resource": [
+                "arn:aws:s3:::aws-monitor-tf-state-*",
+                "arn:aws:dynamodb:us-east-1:*:table/aws-monitor-tf-lock-*"
+            ]
+        }
+    ]
+}
