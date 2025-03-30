@@ -113,13 +113,13 @@ jobs:
     - name: Configure Terraform backend
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       run: |
-        cat > backend.tf << EOF
+        cat > backend.tf << 'EOF'
         terraform {
           backend "s3" {
-            bucket         = "${{ needs.setup-terraform-state.outputs.state_bucket }}"
+            bucket         = "aws-monitor-tf-state-156041437006"
             key            = "terraform.tfstate"
-            region         = "${{ env.AWS_REGION }}"
-            dynamodb_table = "${{ needs.setup-terraform-state.outputs.state_lock_table }}"
+            region         = "us-east-1"
+            dynamodb_table = "aws-monitor-tf-lock-156041437006"
             encrypt        = true
           }
         }
