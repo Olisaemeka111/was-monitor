@@ -11,7 +11,7 @@ output "ecs_service_name" {
 }
 
 output "task_definition_family" {
-  value = split("/", local.task_definition_arn)[1]
+  value = split(":", split("/", local.task_definition_arn)[1])[0]
 }
 
 output "load_balancer_url" {
