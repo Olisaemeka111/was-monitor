@@ -182,46 +182,10 @@ jobs:
         echo "task_definition_family=$(terraform output -raw task_definition_family)" >> $GITHUB_OUTPUT
         echo "load_balancer_url=$(terraform output -raw load_balancer_url)" >> $GITHUB_OUTPUT
 
-  build-and-push-image:
-    needs: deploy-infrastructure
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    permissions:
-      id-token: write
-      contents: read
 
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
-        mask-aws-account-id: true
-
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-
-    - name: Build and push Docker image
-      env:
-        ECR_REGISTRY: ${{ needs.deploy-infrastructure.outputs.ecr_repository }}
-      run: |
-        # Build with cache from latest
-        docker pull $ECR_REGISTRY:latest || true
-        docker build \
-          --cache-from $ECR_REGISTRY:latest \
-          --build-arg BUILDKIT_INLINE_CACHE=1 \
-          -t $ECR_REGISTRY:${{ github.sha }} \
-          -t $ECR_REGISTRY:latest \
-          .
-        docker push $ECR_REGISTRY:${{ github.sha }}
-        docker push $ECR_REGISTRY:latest
 
   deploy-to-ecs:
-    needs: [deploy-infrastructure, build-and-push-image]
+    needs: [deploy-infrastructure]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
