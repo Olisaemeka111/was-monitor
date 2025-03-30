@@ -58,7 +58,7 @@ The application will be available at http://localhost:4000
    git add .
    git commit -m "Initial commit"
    git branch -M main
-   git remote add origin https://github.com/yourusername/aws-monitor.git
+   git remote add origin https://github.com/Olisaemeka111/was-monitor.git
    git push -u origin main
    ```
 
