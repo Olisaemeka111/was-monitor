@@ -129,11 +129,11 @@ jobs:
       id-token: write
       contents: read
     outputs:
-      ecr_repository: ${{ steps.tf-outputs.outputs.ecr_repository_url }}
-      ecs_cluster: ${{ steps.tf-outputs.outputs.ecs_cluster_name }}
-      ecs_service: ${{ steps.tf-outputs.outputs.ecs_service_name }}
-      task_definition: ${{ steps.tf-outputs.outputs.task_definition_family }}
-      load_balancer_url: ${{ steps.tf-outputs.outputs.load_balancer_url }}
+      ecr_repository: ${{ env.ecr_repository_url }}
+      ecs_cluster: ${{ env.ecs_cluster_name }}
+      ecs_service: ${{ env.ecs_service_name }}
+      task_definition: ${{ env.task_definition_family }}
+      load_balancer_url: ${{ env.load_balancer_url }}
     
     steps:
     - uses: actions/checkout@v3
@@ -176,19 +176,23 @@ jobs:
       id: tf-outputs
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       run: |
-        # Write each output to a separate file
-        terraform output -raw ecr_repository_url > ecr_url.txt
-        terraform output -raw ecs_cluster_name > ecs_cluster.txt
-        terraform output -raw ecs_service_name > ecs_service.txt
-        terraform output -raw task_definition_family > task_family.txt
-        terraform output -raw load_balancer_url > lb_url.txt
+        # Create environment file
+        {          
+          echo "ecr_repository_url=$(terraform output -raw ecr_repository_url)"
+          echo "ecs_cluster_name=$(terraform output -raw ecs_cluster_name)"
+          echo "ecs_service_name=$(terraform output -raw ecs_service_name)"
+          echo "task_definition_family=$(terraform output -raw task_definition_family)"
+          echo "load_balancer_url=$(terraform output -raw load_balancer_url)"
+        } > $GITHUB_ENV
 
-        # Read from files and set outputs
-        echo "ecr_repository_url=$(cat ecr_url.txt)" >> $GITHUB_OUTPUT
-        echo "ecs_cluster_name=$(cat ecs_cluster.txt)" >> $GITHUB_OUTPUT
-        echo "ecs_service_name=$(cat ecs_service.txt)" >> $GITHUB_OUTPUT
-        echo "task_definition_family=$(cat task_family.txt)" >> $GITHUB_OUTPUT
-        echo "load_balancer_url=$(cat lb_url.txt)" >> $GITHUB_OUTPUT
+        # Also set outputs
+        {          
+          echo "ecr_repository_url=${ecr_repository_url}"
+          echo "ecs_cluster_name=${ecs_cluster_name}"
+          echo "ecs_service_name=${ecs_service_name}"
+          echo "task_definition_family=${task_definition_family}"
+          echo "load_balancer_url=${load_balancer_url}"
+        } >> $GITHUB_OUTPUT
 
 
 
