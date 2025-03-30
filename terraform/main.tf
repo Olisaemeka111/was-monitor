@@ -245,9 +245,13 @@ resource "aws_iam_role_policy" "ecs_task" {
           "dynamodb:UpdateItem",
           "dynamodb:DeleteItem",
           "dynamodb:Query",
-          "dynamodb:Scan"
+          "dynamodb:Scan",
+          "ecs:DescribeTaskDefinition",
+          "ecs:ListTaskDefinitions",
+          "ecs:DescribeServices",
+          "ecs:UpdateService"
         ]
-        Resource = aws_dynamodb_table.aws_accounts.arn
+        Resource = "*"
       }
     ]
   })
