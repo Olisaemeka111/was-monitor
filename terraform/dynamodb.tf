@@ -1,4 +1,5 @@
 # DynamoDB table for storing AWS account configurations
+# Note: This requires TTL and continuous backup permissions
 resource "aws_dynamodb_table" "aws_accounts" {
   name           = "aws-monitor-accounts"
   billing_mode   = "PAY_PER_REQUEST"
