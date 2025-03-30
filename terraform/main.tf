@@ -208,25 +208,20 @@ resource "aws_iam_role_policy_attachment" "ecs_execution" {
 }
 
 # ECS Task Definition
-# Note: Requires permissions for both registering and reading task definitions
 resource "aws_ecs_task_definition" "app" {
-  lifecycle {
-    create_before_destroy = true
-  }
   family                   = "aws-monitor"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                     = 256
   memory                  = 512
-  execution_role_arn       = aws_iam_role.ecs_execution.arn
+  execution_role_arn      = aws_iam_role.ecs_execution.arn
+  task_role_arn           = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([
     {
       name         = "aws-monitor"
       image        = "${aws_ecr_repository.app.repository_url}:latest"
       essential    = true
-      cpu          = 256
-      memory       = 512
       portMappings = [
         {
           containerPort = 4000
@@ -246,27 +241,15 @@ resource "aws_ecs_task_definition" "app" {
           "awslogs-group"         = "/ecs/aws-monitor"
           "awslogs-region"        = "us-east-1"
           "awslogs-stream-prefix" = "ecs"
+          "awslogs-create-group"  = "true"
         }
       }
-      mountPoints  = []
-      volumesFrom  = []
     }
   ])
 
   tags = {
     Name = "aws-monitor"
   }
-}
-
-# Get latest task definition
-data "aws_ecs_task_definition" "app" {
-  task_definition = aws_ecs_task_definition.app.family
-  depends_on      = [aws_ecs_task_definition.app]
-}
-
-data "aws_ecs_task_definition" "app_active" {
-  task_definition = aws_ecs_task_definition.app.family
-  depends_on      = [aws_ecs_task_definition.app]
 }
 
 # ECS Service
