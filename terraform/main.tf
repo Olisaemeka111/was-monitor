@@ -255,6 +255,12 @@ resource "aws_iam_role_policy" "ecs_task" {
 
 # ECS Task Definition
 resource "aws_ecs_task_definition" "app" {
+  depends_on = [
+    aws_iam_role.ecs_execution,
+    aws_iam_role.ecs_task,
+    aws_cloudwatch_log_group.app
+  ]
+
   family                   = "aws-monitor"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
@@ -300,6 +306,12 @@ resource "aws_ecs_task_definition" "app" {
 
 # ECS Service
 resource "aws_ecs_service" "app" {
+  depends_on = [
+    aws_ecs_task_definition.app,
+    aws_lb_target_group.app,
+    aws_iam_role_policy.ecs_task
+  ]
+
   name            = "aws-monitor"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
