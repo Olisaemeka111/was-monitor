@@ -176,34 +176,49 @@ jobs:
       id: tf-outputs
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       run: |
-        # Save outputs to files first
-        terraform output -json > tf-output.json
+        # Debug: Show raw terraform output
+        echo "Raw terraform output:"
+        terraform output
+        echo "---"
 
-        # Parse and escape the values
-        ECR_URL=$(jq -r '.ecr_repository_url.value' tf-output.json | sed 's/[\:]/\\&/g')
-        ECS_CLUSTER=$(jq -r '.ecs_cluster_name.value' tf-output.json)
-        ECS_SERVICE=$(jq -r '.ecs_service_name.value' tf-output.json)
-        TASK_FAMILY=$(jq -r '.task_definition_family.value' tf-output.json)
-        LB_URL=$(jq -r '.load_balancer_url.value' tf-output.json)
+        # Try to get values one by one
+        echo "Getting individual values:"
+        ECR_URL=$(terraform output -raw ecr_repository_url || echo "error")
+        echo "ECR_URL: $ECR_URL"
+        
+        ECS_CLUSTER=$(terraform output -raw ecs_cluster_name || echo "error")
+        echo "ECS_CLUSTER: $ECS_CLUSTER"
+        
+        ECS_SERVICE=$(terraform output -raw ecs_service_name || echo "error")
+        echo "ECS_SERVICE: $ECS_SERVICE"
+        
+        TASK_FAMILY=$(terraform output -raw task_definition_family || echo "error")
+        echo "TASK_FAMILY: $TASK_FAMILY"
+        
+        LB_URL=$(terraform output -raw load_balancer_url || echo "error")
+        echo "LB_URL: $LB_URL"
 
-        # Use heredoc to set outputs
-        cat << EOF >> $GITHUB_OUTPUT
-        ecr_url<<EOF_ECR
-        $ECR_URL
-        EOF_ECR
-        cluster_name<<EOF_CLUSTER
-        $ECS_CLUSTER
-        EOF_CLUSTER
-        service_name<<EOF_SERVICE
-        $ECS_SERVICE
-        EOF_SERVICE
-        task_family<<EOF_TASK
-        $TASK_FAMILY
-        EOF_TASK
-        lb_url<<EOF_LB
-        $LB_URL
-        EOF_LB
-        EOF
+        # Set outputs safely
+        delimiter="EOF_$(openssl rand -hex 8)"
+        echo "ecr_url<<$delimiter" >> $GITHUB_OUTPUT
+        echo "$ECR_URL" >> $GITHUB_OUTPUT
+        echo "$delimiter" >> $GITHUB_OUTPUT
+
+        echo "cluster_name<<$delimiter" >> $GITHUB_OUTPUT
+        echo "$ECS_CLUSTER" >> $GITHUB_OUTPUT
+        echo "$delimiter" >> $GITHUB_OUTPUT
+
+        echo "service_name<<$delimiter" >> $GITHUB_OUTPUT
+        echo "$ECS_SERVICE" >> $GITHUB_OUTPUT
+        echo "$delimiter" >> $GITHUB_OUTPUT
+
+        echo "task_family<<$delimiter" >> $GITHUB_OUTPUT
+        echo "$TASK_FAMILY" >> $GITHUB_OUTPUT
+        echo "$delimiter" >> $GITHUB_OUTPUT
+
+        echo "lb_url<<$delimiter" >> $GITHUB_OUTPUT
+        echo "$LB_URL" >> $GITHUB_OUTPUT
+        echo "$delimiter" >> $GITHUB_OUTPUT
 
 
 
