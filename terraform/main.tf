@@ -261,6 +261,10 @@ resource "aws_ecs_task_definition" "app" {
     aws_cloudwatch_log_group.app
   ]
 
+  lifecycle {
+    create_before_destroy = true
+  }
+
   family                   = "aws-monitor"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
@@ -312,11 +316,18 @@ resource "aws_ecs_service" "app" {
     aws_iam_role_policy.ecs_task
   ]
 
-  name            = "aws-monitor"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.app.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
+  name                = "aws-monitor"
+  cluster             = aws_ecs_cluster.main.id
+  task_definition     = aws_ecs_task_definition.app.arn
+  desired_count       = 1
+  launch_type         = "FARGATE"
+  force_new_deployment = true
+  
+  lifecycle {
+    ignore_changes = [
+      task_definition
+    ]
+  }
 
   network_configuration {
     subnets         = aws_subnet.public[*].id
