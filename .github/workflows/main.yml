@@ -284,23 +284,31 @@ jobs:
           --max-items 5
         
         echo "\nGetting latest active task definition..."
+        # Get the task definition ARN and ensure it's clean
         TASK_DEF_ARN=$(aws ecs list-task-definitions \
           --family-prefix aws-monitor \
           --sort DESC \
           --max-items 1 \
           --query 'taskDefinitionArns[0]' \
-          --output text)
+          --output text | tr -d '\n' | sed 's/None$//')
         
-        if [ -z "$TASK_DEF_ARN" ]; then
-          echo "Error: No task definition ARN found for family 'aws-monitor'" >&2
+        if [ -z "$TASK_DEF_ARN" ] || [ "$TASK_DEF_ARN" = "None" ]; then
+          echo "Error: No valid task definition ARN found for family 'aws-monitor'" >&2
           exit 1
         fi
         
         echo "Latest task definition ARN: $TASK_DEF_ARN"
         
+        # Extract family name from ARN for the describe call
+        TASK_DEF_FAMILY=$(echo "$TASK_DEF_ARN" | awk -F'/' '{print $2}' | awk -F':' '{print $1}')
+        if [ -z "$TASK_DEF_FAMILY" ]; then
+          echo "Error: Could not extract task definition family from ARN" >&2
+          exit 1
+        fi
+        
         echo "\nDownloading task definition..."
         if ! aws ecs describe-task-definition \
-          --task-definition "$TASK_DEF_ARN" \
+          --task-definition "$TASK_DEF_FAMILY" \
           --query taskDefinition > task-definition.json; then
           echo "Error: Failed to download task definition" >&2
           exit 1
