@@ -126,7 +126,16 @@ export default function Home() {
 
                     try {
                       const formData = new FormData();
+                      const accountNameInput = document.getElementById('accountName') as HTMLInputElement;
+                      const accountName = accountNameInput?.value;
+                      
+                      if (!accountName) {
+                        setError('Please enter an account name');
+                        return;
+                      }
+
                       formData.append("credentials", file);
+                      formData.append("accountName", accountName);
 
                       const response = await fetch("/api/upload-file", {
                         method: "POST",
@@ -154,6 +163,15 @@ export default function Home() {
                     }
                   }}>
 
+                  <div className="space-y-2">
+                    <Label htmlFor="accountName">Account Name</Label>
+                    <Input
+                      id="accountName"
+                      name="accountName"
+                      required
+                      placeholder="Enter AWS account name"
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="file">AWS Credentials File</Label>
                     <Input
