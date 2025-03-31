@@ -278,22 +278,38 @@ jobs:
     - name: Download task definition
       run: |
         echo "Listing all task definitions for aws-monitor family..."
-        aws ecs list-task-definitions --family-prefix aws-monitor --sort DESC --max-items 5
+        aws ecs list-task-definitions \
+          --family-prefix aws-monitor \
+          --sort DESC \
+          --max-items 5
         
         echo "\nGetting latest active task definition..."
-        TASK_DEF_ARN=$(aws ecs list-task-definitions --family-prefix aws-monitor --sort DESC --max-items 1 --query 'taskDefinitionArns[0]' --output text)
+        TASK_DEF_ARN=$(aws ecs list-task-definitions \
+          --family-prefix aws-monitor \
+          --sort DESC \
+          --max-items 1 \
+          --query 'taskDefinitionArns[0]' \
+          --output text)
+        
+        if [ -z "$TASK_DEF_ARN" ]; then
+          echo "Error: No task definition ARN found for family 'aws-monitor'" >&2
+          exit 1
+        fi
+        
         echo "Latest task definition ARN: $TASK_DEF_ARN"
         
-        echo "\nExtracting task definition family and revision..."
-        TASK_DEF_FAMILY=$(echo "$TASK_DEF_ARN" | cut -d'/' -f2 | cut -d':' -f1)
-        TASK_DEF_REVISION=$(echo "$TASK_DEF_ARN" | cut -d':' -f3)
-        echo "Family: $TASK_DEF_FAMILY"
-        echo "Revision: $TASK_DEF_REVISION"
-        
         echo "\nDownloading task definition..."
-        aws ecs describe-task-definition \
-          --task-definition "$TASK_DEF_FAMILY:$TASK_DEF_REVISION" \
-          --query taskDefinition > task-definition.json
+        if ! aws ecs describe-task-definition \
+          --task-definition "$TASK_DEF_ARN" \
+          --query taskDefinition > task-definition.json; then
+          echo "Error: Failed to download task definition" >&2
+          exit 1
+        fi
+        
+        if [ ! -s task-definition.json ]; then
+          echo "Error: Task definition file is empty" >&2
+          exit 1
+        fi
         
         echo "\nTask definition content:"
         cat task-definition.json
