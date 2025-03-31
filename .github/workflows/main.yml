@@ -176,11 +176,13 @@ jobs:
       id: terraform-outputs
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       run: |
-        echo "ecr_repository=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
-        echo "task_definition=$(terraform output -raw task_definition_family)" >> $GITHUB_OUTPUT
-        echo "ecs_service=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
-        echo "ecs_cluster=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
-        echo "load_balancer_url=$(terraform output -raw load_balancer_url)" >> $GITHUB_OUTPUT
+        # Save outputs to files first to handle special characters
+        terraform output -json > tf_output.json
+        echo "ecr_repository=$(jq -r .ecr_repository_url.value tf_output.json)" >> $GITHUB_OUTPUT
+        echo "task_definition=$(jq -r .task_definition_family.value tf_output.json)" >> $GITHUB_OUTPUT
+        echo "ecs_service=$(jq -r .ecs_service_name.value tf_output.json)" >> $GITHUB_OUTPUT
+        echo "ecs_cluster=$(jq -r .ecs_cluster_name.value tf_output.json)" >> $GITHUB_OUTPUT
+        echo "load_balancer_url=$(jq -r .load_balancer_url.value tf_output.json)" >> $GITHUB_OUTPUT
 
 
 
