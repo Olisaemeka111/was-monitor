@@ -277,8 +277,65 @@ jobs:
     - name: Display Application URL
       id: app-url
       run: |
-        APP_URL="http://${{ needs.deploy-infrastructure.outputs.load_balancer_url }}"
+        # Get and validate load balancer URL
+        LB_URL="${{ needs.deploy-infrastructure.outputs.load_balancer_url }}"
+        echo "Debug: Raw load balancer URL from Terraform = '$LB_URL'"
+        
+        if [ -z "$LB_URL" ]; then
+          echo "Error: Load balancer URL is empty. Checking Terraform outputs..."
+          cd ${{ env.TERRAFORM_WORKING_DIR }}
+          terraform output
+          exit 1
+        fi
+        
+        # Construct and store application URL
+        APP_URL="http://$LB_URL"
+        echo "url=$APP_URL" >> $GITHUB_OUTPUT
         echo "✨ Application is now available at: $APP_URL"
+
+    - name: Wait for application to be healthy
+      run: |
+        APP_URL="${{ steps.app-url.outputs.url }}"
+        echo "Waiting for application to be healthy at: $APP_URL"
+        
+        MAX_ATTEMPTS=60
+        ATTEMPT=1
+        while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+          echo "Debug: Attempt $ATTEMPT - Curling '$APP_URL'"
+          echo "Debug: Full curl output:"
+          
+          # Use temporary files for better output handling
+          HEADERS_FILE=$(mktemp)
+          BODY_FILE=$(mktemp)
+          
+          # Perform curl request with detailed output
+          HTTP_CODE=$(curl -s -w '%{http_code}' \
+                         -D "$HEADERS_FILE" \
+                         -o "$BODY_FILE" \
+                         -H 'User-Agent: GitHub-Actions-Health-Check' \
+                         "$APP_URL" 2>&1)
+          
+          echo "Debug: Response headers:"
+          cat "$HEADERS_FILE"
+          echo "Debug: Response body:"
+          cat "$BODY_FILE"
+          echo "Debug: HTTP status code = $HTTP_CODE"
+          
+          # Clean up temp files
+          rm -f "$HEADERS_FILE" "$BODY_FILE"
+          
+          if [[ "$HTTP_CODE" =~ ^[23] ]]; then
+            echo "✅ Application is healthy! (HTTP $HTTP_CODE)"
+            exit 0
+          fi
+          
+          echo "Attempt $ATTEMPT: Application returned HTTP $HTTP_CODE, waiting 10 seconds..."
+          sleep 10
+          ATTEMPT=$((ATTEMPT + 1))
+        done
+        
+        echo "❌ Application health check failed after 10 minutes"
+        exit 1
         echo "⏳ Note: It may take a few minutes for DNS to propagate and the application to be fully available"
         echo "url=$APP_URL" >> $GITHUB_OUTPUT
 
