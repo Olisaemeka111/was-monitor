@@ -276,51 +276,53 @@ jobs:
         mask-aws-account-id: true
 
     - name: Download task definition
+      id: download-task-def
       run: |
         echo "Listing all task definitions for aws-monitor family..."
-        TASK_DEFS=$(aws ecs list-task-definitions \
+        TASK_DEFS_JSON=$(aws ecs list-task-definitions \
           --family-prefix aws-monitor \
           --sort DESC \
-          --max-items 5)
-        echo "$TASK_DEFS"
+          --max-items 5 \
+          --output json)
+        echo "$TASK_DEFS_JSON"
         
         echo "\nGetting latest active task definition..."
-        # Get the task definition ARN without any text processing
-        TASK_DEF_ARN=$(aws ecs list-task-definitions \
-          --family-prefix aws-monitor \
-          --sort DESC \
-          --max-items 1 \
-          --query 'taskDefinitionArns[0]' \
-          --output text)
+        # Get the task definition ARN using jq
+        TASK_DEF_ARN=$(echo "$TASK_DEFS_JSON" | jq -r '.taskDefinitionArns[0]')
         
-        if [ -z "$TASK_DEF_ARN" ] || [ "$TASK_DEF_ARN" = "None" ]; then
+        if [ -z "$TASK_DEF_ARN" ] || [ "$TASK_DEF_ARN" = "null" ]; then
           echo "Error: No valid task definition ARN found for family 'aws-monitor'" >&2
-          aws ecs list-task-definitions --family-prefix aws-monitor
           exit 1
         fi
         
         echo "Latest task definition ARN: $TASK_DEF_ARN"
         
         echo "\nDownloading task definition..."
-        if ! aws ecs describe-task-definition \
-          --task-definition "$TASK_DEF_ARN" \
-          --include TAGS \
-          --query 'taskDefinition' > task-definition.json; then
-          echo "Error: Failed to download task definition using ARN" >&2
-          # Try with just the family name as fallback
-          TASK_DEF_FAMILY=$(echo "$TASK_DEF_ARN" | awk -F'/' '{print $2}' | awk -F':' '{print $1}')
-          echo "Trying with family name: $TASK_DEF_FAMILY"
-          if ! aws ecs describe-task-definition \
-            --task-definition "$TASK_DEF_FAMILY" \
-            --include TAGS \
-            --query 'taskDefinition' > task-definition.json; then
-            echo "Error: Failed to download task definition using family name" >&2
-            exit 1
-          fi
+        # Get the task definition family from the ARN
+        TASK_DEF_FAMILY=$(echo "$TASK_DEF_ARN" | awk -F'/' '{print $2}' | awk -F':' '{print $1}')
+        
+        if [ -z "$TASK_DEF_FAMILY" ]; then
+          echo "Error: Could not extract task definition family from ARN" >&2
+          exit 1
         fi
+        
+        echo "Using task definition family: $TASK_DEF_FAMILY"
+        
+        # Download the task definition
+        aws ecs describe-task-definition \
+          --task-definition "$TASK_DEF_FAMILY" \
+          --include TAGS \
+          --output json \
+          --query 'taskDefinition' > task-definition.json
         
         if [ ! -s task-definition.json ]; then
           echo "Error: Task definition file is empty" >&2
+          exit 1
+        fi
+        
+        # Validate JSON
+        if ! jq empty task-definition.json 2>/dev/null; then
+          echo "Error: Invalid JSON in task definition file" >&2
           exit 1
         fi
         
@@ -337,7 +339,7 @@ jobs:
         task-definition: task-definition.json
         container-name: aws-monitor
         image: ${{ needs.deploy-infrastructure.outputs.ecr_repository }}:${{ github.sha }}
-        task-definition-arn: ${{ steps.download-task-definition.outputs.task_definition_arn }}
+        task-definition-arn: ${{ steps.download-task-def.outputs.task_definition_arn }}
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
