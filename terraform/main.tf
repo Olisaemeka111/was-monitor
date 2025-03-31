@@ -338,13 +338,6 @@ resource "aws_ecs_task_definition" "app" {
         startPeriod = 60
       }
 
-      dependsOn = [
-        {
-          containerName = "aws-monitor"
-          condition     = "START"
-        }
-      ]
-
       logConfiguration = {
         logDriver = "awslogs"
         options = {
