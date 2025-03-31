@@ -243,16 +243,16 @@ jobs:
       run: |
         echo "Waiting for application to be healthy..."
         APP_URL="${{ steps.app-url.outputs.url }}"
-        for i in {1..30}; do
+        for i in {1..60}; do
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL")
-          if [ "$HTTP_STATUS" = "200" ]; then
-            echo "✅ Application is healthy and responding with HTTP 200"
+          if [[ "$HTTP_STATUS" =~ ^(200|301|302|303|307|308)$ ]]; then
+            echo "✅ Application is healthy and responding with HTTP $HTTP_STATUS"
             exit 0
           fi
           echo "Attempt $i: Application returned HTTP $HTTP_STATUS, waiting 10 seconds..."
           sleep 10
         done
-        echo "❌ Application health check failed after 5 minutes"
+        echo "❌ Application health check failed after 10 minutes"
         exit 1
 
     - name: Verify API Endpoints

@@ -136,9 +136,15 @@ resource "aws_lb_target_group" "app" {
   target_type = "ip"
 
   health_check {
+    enabled             = true
     path                = "/"
+    port                = "traffic-port"
+    protocol            = "HTTP"
     healthy_threshold   = 2
-    unhealthy_threshold = 10
+    unhealthy_threshold = 5
+    timeout             = 30
+    interval            = 60
+    matcher             = "200-399"  # Accept 2xx and 3xx responses as healthy
   }
 
   tags = {
