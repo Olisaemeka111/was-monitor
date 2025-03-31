@@ -244,9 +244,15 @@ jobs:
         TASK_DEF_ARN=$(aws ecs list-task-definitions --family-prefix aws-monitor --sort DESC --max-items 1 --query 'taskDefinitionArns[0]' --output text)
         echo "Latest task definition ARN: $TASK_DEF_ARN"
         
+        echo "\nExtracting task definition family and revision..."
+        TASK_DEF_FAMILY=$(echo "$TASK_DEF_ARN" | cut -d'/' -f2 | cut -d':' -f1)
+        TASK_DEF_REVISION=$(echo "$TASK_DEF_ARN" | cut -d':' -f3)
+        echo "Family: $TASK_DEF_FAMILY"
+        echo "Revision: $TASK_DEF_REVISION"
+        
         echo "\nDownloading task definition..."
         aws ecs describe-task-definition \
-          --task-definition "$TASK_DEF_ARN" \
+          --task-definition "$TASK_DEF_FAMILY:$TASK_DEF_REVISION" \
           --query taskDefinition > task-definition.json
         
         echo "\nTask definition content:"
