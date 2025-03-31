@@ -168,9 +168,33 @@ jobs:
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       run: terraform init -reconfigure
 
-    - name: Terraform Apply
+    - name: Terraform Apply with Retry
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
-      run: terraform apply -auto-approve
+      run: |
+        RETRY_COUNT=0
+        MAX_RETRIES=3
+        RETRY_DELAY=10
+
+        until [ $RETRY_COUNT -ge $MAX_RETRIES ]
+        do
+          if terraform force-unlock -force "$(terraform show -json | jq -r '.terraform_version')" 2>/dev/null; then
+            echo "Successfully removed stale lock"
+          fi
+          
+          if terraform apply -auto-approve; then
+            echo "Terraform apply succeeded"
+            exit 0
+          fi
+          
+          RETRY_COUNT=$((RETRY_COUNT+1))
+          if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            echo "Retry $RETRY_COUNT/$MAX_RETRIES: Waiting $RETRY_DELAY seconds before retrying..."
+            sleep $RETRY_DELAY
+          fi
+        done
+
+        echo "Terraform apply failed after $MAX_RETRIES attempts"
+        exit 1
 
     - name: Get Terraform Outputs
       id: terraform-outputs
