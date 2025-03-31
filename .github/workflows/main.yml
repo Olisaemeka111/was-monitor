@@ -211,8 +211,9 @@ jobs:
 
     - name: Download task definition
       run: |
+        TASK_DEF="${{ needs.deploy-infrastructure.outputs.task_definition }}"
         aws ecs describe-task-definition \
-          --task-definition ${{ needs.deploy-infrastructure.outputs.task_definition }} \
+          --task-definition "${TASK_DEF}:$(aws ecs list-task-definitions --family-prefix "$TASK_DEF" --sort DESC --max-items 1 --query 'taskDefinitionArns[0]' --output text | cut -d ':' -f 7)" \
           --query taskDefinition > task-definition.json
 
     - name: Fill in the new image ID in the Amazon ECS task definition
