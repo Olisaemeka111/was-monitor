@@ -229,6 +229,32 @@ resource "aws_iam_role" "ecs_task" {
   }
 }
 
+# IAM User Policy for GitHub Actions
+resource "aws_iam_user_policy" "github_actions" {
+  name = "aws-monitor-github-actions"
+  user = "olisa.arinze1"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecs:DescribeTaskDefinition",
+          "ecs:ListTaskDefinitions",
+          "ecs:DescribeServices",
+          "ecs:UpdateService",
+          "ecs:RegisterTaskDefinition",
+          "ecs:DeregisterTaskDefinition",
+          "ecs:ListTasks",
+          "ecs:DescribeTasks"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # ECS Task Policy
 resource "aws_iam_role_policy" "ecs_task" {
   name = "aws-monitor-ecs-task"
