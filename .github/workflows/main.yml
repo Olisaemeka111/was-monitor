@@ -118,7 +118,9 @@ jobs:
         IMAGE_TAG: ${{ needs.build-and-test.outputs.image_tag }}
       run: |
         docker build -t $ECR_REGISTRY/aws-monitor:$IMAGE_TAG .
+        docker tag $ECR_REGISTRY/aws-monitor:$IMAGE_TAG $ECR_REGISTRY/aws-monitor:latest
         docker push $ECR_REGISTRY/aws-monitor:$IMAGE_TAG
+        docker push $ECR_REGISTRY/aws-monitor:latest
         echo "image_url=$ECR_REGISTRY/aws-monitor:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
   deploy-infrastructure:
