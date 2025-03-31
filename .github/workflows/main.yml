@@ -298,22 +298,12 @@ jobs:
         echo "Latest task definition ARN: $TASK_DEF_ARN"
         
         echo "\nDownloading task definition..."
-        # Get the task definition family from the ARN
-        TASK_DEF_FAMILY=$(echo "$TASK_DEF_ARN" | awk -F'/' '{print $2}' | awk -F':' '{print $1}')
-        
-        if [ -z "$TASK_DEF_FAMILY" ]; then
-          echo "Error: Could not extract task definition family from ARN" >&2
-          exit 1
-        fi
-        
-        echo "Using task definition family: $TASK_DEF_FAMILY"
-        
-        # Download the task definition
+        # Download and clean the task definition
         aws ecs describe-task-definition \
-          --task-definition "$TASK_DEF_FAMILY" \
-          --include TAGS \
-          --output json \
-          --query 'taskDefinition' > task-definition.json
+          --task-definition "aws-monitor" \
+          --query 'taskDefinition' \
+          | jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+          > task-definition.json
         
         if [ ! -s task-definition.json ]; then
           echo "Error: Task definition file is empty" >&2
@@ -328,9 +318,6 @@ jobs:
         
         echo "\nTask definition content:"
         cat task-definition.json
-        
-        # Store the task definition ARN for later use
-        echo "task_definition_arn=$TASK_DEF_ARN" >> "$GITHUB_OUTPUT"
 
     - name: Fill in the new image ID in the Amazon ECS task definition
       id: task-def
@@ -346,7 +333,21 @@ jobs:
         task-definition: task-definition.json
         service: aws-monitor
         cluster: aws-monitor
-        wait-for-service-stability: true
+        wait-for-service-stability: false
+
+    - name: Wait for ECS Service Stability
+      run: |
+        echo "Waiting for ECS service to stabilize..."
+        if ! aws ecs wait services-stable \
+          --cluster aws-monitor \
+          --services aws-monitor; then
+          echo "Error: ECS service failed to stabilize" >&2
+          aws ecs describe-services \
+            --cluster aws-monitor \
+            --services aws-monitor \
+            --query 'services[0].events[0:5]'
+          exit 1
+        fi
 
     - name: Display Application URL
       id: app-url
