@@ -339,14 +339,13 @@ jobs:
         task-definition: task-definition.json
         container-name: aws-monitor
         image: ${{ needs.deploy-infrastructure.outputs.ecr_repository }}:${{ github.sha }}
-        task-definition-arn: ${{ steps.download-task-def.outputs.task_definition_arn }}
 
     - name: Deploy Amazon ECS task definition
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
       with:
-        task-definition: ${{ steps.task-def.outputs.task-definition }}
-        service: ${{ needs.deploy-infrastructure.outputs.ecs_service }}
-        cluster: ${{ needs.deploy-infrastructure.outputs.ecs_cluster }}
+        task-definition: task-definition.json
+        service: aws-monitor
+        cluster: aws-monitor
         wait-for-service-stability: true
 
     - name: Display Application URL
