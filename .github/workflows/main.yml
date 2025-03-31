@@ -172,6 +172,21 @@ jobs:
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       run: terraform apply -auto-approve
 
+    - name: Get Terraform Outputs
+      id: terraform-outputs
+      working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
+      run: |
+        echo "ecr_repository=$(terraform output -raw ecr_repository_url)" >> $GITHUB_OUTPUT
+        echo "task_definition=$(terraform output -raw task_definition_family)" >> $GITHUB_OUTPUT
+        echo "ecs_service=$(terraform output -raw ecs_service_name)" >> $GITHUB_OUTPUT
+        echo "ecs_cluster=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_OUTPUT
+
+    outputs:
+      ecr_repository: ${{ steps.terraform-outputs.outputs.ecr_repository }}
+      task_definition: ${{ steps.terraform-outputs.outputs.task_definition }}
+      ecs_service: ${{ steps.terraform-outputs.outputs.ecs_service }}
+      ecs_cluster: ${{ steps.terraform-outputs.outputs.ecs_cluster }}
+
 
 
 
