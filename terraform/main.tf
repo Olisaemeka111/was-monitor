@@ -245,11 +245,21 @@ resource "aws_iam_role_policy" "ecs_task" {
           "dynamodb:UpdateItem",
           "dynamodb:DeleteItem",
           "dynamodb:Query",
-          "dynamodb:Scan",
+          "dynamodb:Scan"
+        ]
+        Resource = aws_dynamodb_table.aws_accounts.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "ecs:DescribeTaskDefinition",
           "ecs:ListTaskDefinitions",
           "ecs:DescribeServices",
-          "ecs:UpdateService"
+          "ecs:UpdateService",
+          "ecs:RegisterTaskDefinition",
+          "ecs:DeregisterTaskDefinition",
+          "ecs:ListTasks",
+          "ecs:DescribeTasks"
         ]
         Resource = "*"
       }
