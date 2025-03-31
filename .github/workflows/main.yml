@@ -183,6 +183,11 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      actions: read
+      security-events: write
+      # Add ECS permissions
+      ecs-tasks: write
+      ecs-service: write
 
     steps:
     - uses: actions/checkout@v3
