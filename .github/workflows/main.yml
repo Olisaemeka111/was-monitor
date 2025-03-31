@@ -176,66 +176,79 @@ jobs:
       id: terraform-outputs
       working-directory: ${{ env.TERRAFORM_WORKING_DIR }}
       run: |
-        # Function to safely get Terraform output
-        get_tf_output() {
+        # Function to extract output without debug info
+        extract_output() {
           local output_name=$1
-          local output_file
-          output_file=$(mktemp)
-          
-          # Get raw output to temp file to avoid debug messages
-          if ! terraform output -raw "$output_name" > "$output_file" 2>/dev/null; then
-            echo "Error: Failed to get $output_name output" >&2
-            rm -f "$output_file"
-            return 1
-          fi
-          
-          # Read the output value
-          value=$(<"$output_file")
-          rm -f "$output_file"
+          local value
+          # Redirect both stdout and stderr of terraform to a temp file
+          local tmpfile=$(mktemp)
+          terraform output -raw "$output_name" > "$tmpfile" 2>/dev/null
+          value=$(<"$tmpfile")
+          rm -f "$tmpfile"
           
           if [ -z "$value" ]; then
-            echo "Error: Empty value for $output_name" >&2
+            echo "Error: Failed to extract $output_name" >&2
             return 1
           fi
-          
           echo "$value"
         }
         
-        # Get each output individually and validate
-        echo "Fetching Terraform outputs..."
+        # Extract outputs and validate
+        echo "Extracting Terraform outputs..."
         
-        ECR_REPO=$(get_tf_output "ecr_repository_url")
-        echo "ECR Repository URL: $ECR_REPO"
-        
-        TASK_DEF=$(get_tf_output "task_definition_family")
-        echo "Task Definition Family: $TASK_DEF"
-        
-        ECS_SERVICE=$(get_tf_output "ecs_service_name")
-        echo "ECS Service Name: $ECS_SERVICE"
-        
-        ECS_CLUSTER=$(get_tf_output "ecs_cluster_name")
-        echo "ECS Cluster Name: $ECS_CLUSTER"
-        
-        LB_URL=$(get_tf_output "load_balancer_url")
-        echo "Load Balancer URL: $LB_URL"
-        
-        # Validate all outputs are present
-        if [ -z "$ECR_REPO" ] || [ -z "$TASK_DEF" ] || [ -z "$ECS_SERVICE" ] || 
-           [ -z "$ECS_CLUSTER" ] || [ -z "$LB_URL" ]; then
-          echo "Error: One or more required outputs are missing"
+        # ECR Repository URL
+        ECR_REPO=$(extract_output "ecr_repository_url")
+        if [ $? -ne 0 ]; then
+          echo "Failed to get ECR repository URL" >&2
           exit 1
         fi
         
-        # Set GitHub outputs
-        {
-          echo "ecr_repository=$ECR_REPO"
-          echo "task_definition=$TASK_DEF"
-          echo "ecs_service=$ECS_SERVICE"
-          echo "ecs_cluster=$ECS_CLUSTER"
-          echo "load_balancer_url=$LB_URL"
-        } >> "$GITHUB_OUTPUT"
+        # Task Definition Family
+        TASK_DEF=$(extract_output "task_definition_family")
+        if [ $? -ne 0 ]; then
+          echo "Failed to get task definition family" >&2
+          exit 1
+        fi
         
-        echo "Successfully set all outputs"
+        # ECS Service Name
+        ECS_SERVICE=$(extract_output "ecs_service_name")
+        if [ $? -ne 0 ]; then
+          echo "Failed to get ECS service name" >&2
+          exit 1
+        fi
+        
+        # ECS Cluster Name
+        ECS_CLUSTER=$(extract_output "ecs_cluster_name")
+        if [ $? -ne 0 ]; then
+          echo "Failed to get ECS cluster name" >&2
+          exit 1
+        fi
+        
+        # Load Balancer URL
+        LB_URL=$(extract_output "load_balancer_url")
+        if [ $? -ne 0 ]; then
+          echo "Failed to get load balancer URL" >&2
+          exit 1
+        fi
+        
+        # Set outputs without any debug information
+        {
+          echo "ecr_repository<<EOF"
+          echo "$ECR_REPO"
+          echo "EOF"
+          echo "task_definition<<EOF"
+          echo "$TASK_DEF"
+          echo "EOF"
+          echo "ecs_service<<EOF"
+          echo "$ECS_SERVICE"
+          echo "EOF"
+          echo "ecs_cluster<<EOF"
+          echo "$ECS_CLUSTER"
+          echo "EOF"
+          echo "load_balancer_url<<EOF"
+          echo "$LB_URL"
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
 
 
 
