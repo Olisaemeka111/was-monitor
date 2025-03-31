@@ -211,9 +211,20 @@ jobs:
 
     - name: Download task definition
       run: |
+        echo "Listing all task definitions for aws-monitor family..."
+        aws ecs list-task-definitions --family-prefix aws-monitor --sort DESC --max-items 5
+        
+        echo "\nGetting latest active task definition..."
+        TASK_DEF_ARN=$(aws ecs list-task-definitions --family-prefix aws-monitor --sort DESC --max-items 1 --query 'taskDefinitionArns[0]' --output text)
+        echo "Latest task definition ARN: $TASK_DEF_ARN"
+        
+        echo "\nDownloading task definition..."
         aws ecs describe-task-definition \
-          --task-definition aws-monitor \
+          --task-definition "$TASK_DEF_ARN" \
           --query taskDefinition > task-definition.json
+        
+        echo "\nTask definition content:"
+        cat task-definition.json
 
     - name: Fill in the new image ID in the Amazon ECS task definition
       id: task-def
