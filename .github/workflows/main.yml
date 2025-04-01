@@ -22,32 +22,43 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Set up Node.js
+    - name: Set up Node.js and pnpm
       uses: actions/setup-node@v3
       with:
         node-version: '18'
         registry-url: 'https://registry.npmjs.org/'
 
+    - name: Install pnpm
+      run: npm install -g pnpm@latest
+
     - name: Install dependencies
       run: |
-        npm install --legacy-peer-deps --no-optional
+        pnpm install --no-frozen-lockfile
       env:
         NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         NEXT_TELEMETRY_DISABLED: 1
+        NEXT_SHARP_PATH: /tmp/node_modules/sharp
 
     - name: Run linting
-      run: npm run lint || true
+      run: pnpm lint || true
+      env:
+        NEXT_TELEMETRY_DISABLED: 1
 
     - name: Build application
-      run: npm run build
+      run: pnpm build
+      env:
+        NEXT_TELEMETRY_DISABLED: 1
+        NODE_ENV: production
 
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y jq bc
 
     - name: Run tests
-      run: npm test || true
+      run: pnpm test || true
+      env:
+        NEXT_TELEMETRY_DISABLED: 1
 
     - name: Generate image tag
       id: image-tag
