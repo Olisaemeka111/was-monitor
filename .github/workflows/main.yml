@@ -34,15 +34,62 @@ jobs:
       env:
         NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "//registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN" >> .npmrc
-        npm config list
+        # Clear any existing npm configurations
+        rm -rf ~/.npmrc
+        # Setup npm config
+        npm config set registry https://registry.npmjs.org/
+        npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
+        npm config set strict-ssl false
+        npm config set fetch-retries 5
+        npm config set fetch-retry-factor 2
+        npm config set fetch-retry-mintimeout 20000
+        npm config set fetch-retry-maxtimeout 120000
         
-    - name: Install dependencies
+    - name: Install dependencies with retry
       run: |
+        # Clear npm cache and remove lock file
         npm cache clean --force
-        npm install --prefer-offline --no-audit --no-fund --legacy-peer-deps
+        rm -f package-lock.json
+        
+        # Function to attempt npm install
+        attempt_install() {
+          npm install \
+            --prefer-offline \
+            --no-audit \
+            --no-fund \
+            --legacy-peer-deps \
+            --verbose \
+            --ignore-scripts \
+            --no-optional
+        }
+        
+        # Retry logic
+        MAX_RETRIES=3
+        RETRY_COUNT=0
+        
+        until [ $RETRY_COUNT -ge $MAX_RETRIES ]
+        do
+          echo "\nAttempt $(($RETRY_COUNT + 1))/$MAX_RETRIES: Installing npm packages..."
+          
+          if attempt_install; then
+            echo "✅ npm install succeeded!"
+            exit 0
+          fi
+          
+          RETRY_COUNT=$(($RETRY_COUNT + 1))
+          
+          if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            WAIT_TIME=$(( 30 * $RETRY_COUNT ))
+            echo "⚠️ npm install failed. Waiting ${WAIT_TIME} seconds before retry..."
+            sleep $WAIT_TIME
+          fi
+        done
+        
+        echo "❌ npm install failed after $MAX_RETRIES attempts"
+        exit 1
       env:
         NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        npm_config_registry: https://registry.npmjs.org/
 
     - name: Run linting
       run: npm run lint || true
