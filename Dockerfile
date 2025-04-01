@@ -6,7 +6,8 @@ RUN apk add --no-cache \
     aws-cli \
     jq \
     bash \
-    bc
+    bc \
+    curl
 
 # Set working directory
 WORKDIR /app
