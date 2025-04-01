@@ -30,10 +30,19 @@ jobs:
         node-version: '18'
         cache: 'npm'
 
-    - name: Install dependencies and update lock file
+    - name: Setup Node.js and npm
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        rm -f package-lock.json
-        npm install
+        echo "//registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN" >> .npmrc
+        npm config list
+        
+    - name: Install dependencies
+      run: |
+        npm cache clean --force
+        npm install --prefer-offline --no-audit --no-fund --legacy-peer-deps
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Run linting
       run: npm run lint || true
