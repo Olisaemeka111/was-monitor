@@ -246,14 +246,42 @@ resource "aws_iam_user_policy" "github_actions" {
       {
         Effect = "Allow"
         Action = [
-          "ecs:DescribeTaskDefinition",
-          "ecs:ListTaskDefinitions",
-          "ecs:DescribeServices",
-          "ecs:UpdateService",
-          "ecs:RegisterTaskDefinition",
-          "ecs:DeregisterTaskDefinition",
-          "ecs:ListTasks",
-          "ecs:DescribeTasks"
+          # ECS permissions
+          "ecs:*",
+          
+          # EC2 permissions
+          "ec2:DescribeInstances",
+          "ec2:DescribeVpcs",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeNetworkInterfaces",
+          
+          # S3 permissions
+          "s3:ListBucket",
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          
+          # Lambda permissions
+          "lambda:ListFunctions",
+          "lambda:GetFunction",
+          "lambda:InvokeFunction",
+          
+          # RDS permissions
+          "rds:DescribeDBInstances",
+          "rds:DescribeDBClusters",
+          "rds:ListTagsForResource",
+          
+          # IAM permissions for roles
+          "iam:GetRole",
+          "iam:PassRole",
+          
+          # CloudWatch Logs permissions
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams"
         ]
         Resource = "*"
       }
@@ -312,7 +340,7 @@ resource "aws_ecs_task_definition" "app" {
   container_definitions = jsonencode([
     {
       name      = "aws-monitor"
-      image     = "${aws_ecr_repository.app.repository_url}:latest"
+      image     = "${aws_ecr_repository.app.repository_url}:20250331181535-275d68b7"
       essential = true
       
       portMappings = [

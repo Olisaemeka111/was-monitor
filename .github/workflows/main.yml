@@ -5,6 +5,8 @@ name: AWS Monitor CI/CD
 # AWS_SECRET_ACCESS_KEY: AWS secret key for deploying infrastructure and pushing to ECR
 # GITHUB_TOKEN: Automatically provided by GitHub, used for repository access
 
+# Trigger rebuild with updated IAM permissions
+
 on:
   push:
     branches: [ main ]
@@ -471,43 +473,52 @@ jobs:
           cat "$BODY_FILE"
           echo "Debug: HTTP status code = $HTTP_CODE"
           
-          # Clean up temp files
-          rm -f "$HEADERS_FILE" "$BODY_FILE"
-          
-          if [[ "$HTTP_CODE" =~ ^[23] ]]; then
-            echo "✅ Application is healthy! (HTTP $HTTP_CODE)"
-            exit 0
-          fi
-          
-          echo "Attempt $ATTEMPT: Application returned HTTP $HTTP_CODE, waiting 10 seconds..."
-          sleep 10
-          ATTEMPT=$((ATTEMPT + 1))
-        done
-        
-        echo "❌ Application health check failed after 10 minutes"
-        exit 1
-        echo "⏳ Note: It may take a few minutes for DNS to propagate and the application to be fully available"
-        echo "url=$APP_URL" >> $GITHUB_OUTPUT
+          # We'll handle health checks in the next step
+          echo "url=$APP_URL" >> $GITHUB_OUTPUT
 
     - name: Wait for Application Health
       run: |
-        echo "Debug: Load balancer URL from Terraform = ${{ needs.deploy-infrastructure.outputs.load_balancer_url }}"
-        APP_URL="http://${{ needs.deploy-infrastructure.outputs.load_balancer_url }}"
-        echo "Debug: Full application URL = $APP_URL"
+        # Get and clean the load balancer URL
+        LB_URL=$(echo "${{ needs.deploy-infrastructure.outputs.load_balancer_url }}" | grep -o '[^[:space:]]*\.elb\.amazonaws\.com' || true)
+        if [ -z "$LB_URL" ]; then
+          echo "❌ Error: Could not extract valid load balancer URL"
+          echo "Raw URL output: ${{ needs.deploy-infrastructure.outputs.load_balancer_url }}"
+          exit 1
+        fi
+        APP_URL="http://$LB_URL"
+        echo "🔍 Using load balancer URL: $LB_URL"
+        echo "🌐 Full application URL: $APP_URL"
         
-        echo "Waiting for application to be healthy..."
-        for i in {1..60}; do
-          echo "Debug: Attempt $i - Curling $APP_URL"
-          HTTP_STATUS=$(curl -v "$APP_URL" 2>&1 || true)
-          echo "Debug: Full curl output:"
-          echo "$HTTP_STATUS"
+        # DNS propagation check
+        echo "⏳ Checking DNS propagation..."
+        if ! nslookup $LB_URL > /dev/null 2>&1; then
+          echo "⚠️ Warning: DNS resolution failed. This is normal initially - will keep trying."
+        else
+          echo "✅ DNS resolution successful"
+        fi
+        
+        echo "🔄 Starting health checks..."
+        MAX_ATTEMPTS=60
+        for i in $(seq 1 $MAX_ATTEMPTS); do
+          echo "\n📡 Health check attempt $i of $MAX_ATTEMPTS"
           
+          # Perform the health check with a timeout
+          HTTP_STATUS=$(curl -v --max-time 10 "$APP_URL" 2>&1 || true)
+          
+          # Extract status code and connection info
           STATUS_CODE=$(echo "$HTTP_STATUS" | grep -o 'HTTP/[0-9.]* [0-9]\{3\}' | tail -1 | awk '{print $2}')
-          echo "Debug: Extracted status code = $STATUS_CODE"
+          CONN_ERROR=$(echo "$HTTP_STATUS" | grep -i 'failed to connect' || true)
           
-          if [[ "$STATUS_CODE" =~ ^(200|301|302|303|307|308)$ ]]; then
+          if [[ -n "$CONN_ERROR" ]]; then
+            echo "⚠️ Connection failed - service might still be starting"
+          elif [[ -z "$STATUS_CODE" ]]; then
+            echo "⚠️ No HTTP status code received - might be DNS or network issue"
+          elif [[ "$STATUS_CODE" =~ ^(200|301|302|303|307|308)$ ]]; then
             echo "✅ Application is healthy and responding with HTTP $STATUS_CODE"
+            echo "🎉 Deployment successful!"
             exit 0
+          else
+            echo "⚠️ Received HTTP $STATUS_CODE - waiting for healthy status"
           fi
           echo "Attempt $i: Application returned HTTP $STATUS_CODE, waiting 10 seconds..."
           sleep 10
